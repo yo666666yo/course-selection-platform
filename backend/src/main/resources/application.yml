@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: smart-course
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 👇 注意：如果没有 course_db 数据库，程序也会报错
+    url: jdbc:mysql://localhost:3306/course_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
+    username: root
+    # 👇👇👇 这里的密码一定要改成你自己的！
+    password: 71124113
