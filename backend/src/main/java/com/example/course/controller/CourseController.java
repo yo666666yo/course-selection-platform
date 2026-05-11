@@ -3,6 +3,7 @@ package com.example.course.controller;
 import cn.dev33.satoken.stp.StpUtil;
 import com.example.course.common.Result;
 import com.example.course.entity.Course;
+import com.example.course.event.CourseEventPublisher;
 import com.example.course.mapper.CourseMapper;
 import com.example.course.service.CourseService;
 import com.example.course.service.impl.AutoScheduleService;
@@ -19,6 +20,7 @@ public class CourseController {
     @Autowired private CourseService courseService;
     @Autowired private CourseMapper courseMapper;
     @Autowired private AutoScheduleService autoScheduleService;
+    @Autowired private CourseEventPublisher eventPublisher;
 
     // --- 公共查询接口 ---
 
@@ -76,6 +78,7 @@ public class CourseController {
     public Result<String> proposeCourse(@RequestBody Course course) {
         course.setStatus(0);
         courseMapper.insert(course);
+        eventPublisher.courseProposed(course.getId(), course.getName(), course.getTeacherName());
         return Result.success("申报成功");
     }
 
@@ -90,13 +93,18 @@ public class CourseController {
 
         course.setStatus(pass ? 1 : 3);
         courseMapper.updateById(course);
+        eventPublisher.courseAudited(courseId, course.getName(), pass);
         return Result.success("操作成功");
     }
 
     @RequestMapping("/auto-schedule")
     public Result<String> autoSchedule() {
         if (!"admin".equals(StpUtil.getSession().getString("role"))) return Result.error("无权操作");
-        return Result.success(autoScheduleService.autoSchedule());
+        int pendingCount = courseMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Course>().eq("status", 1));
+        String result = autoScheduleService.autoSchedule();
+        eventPublisher.scheduleGenerated(pendingCount > 0 ? pendingCount : 0);
+        return Result.success(result);
     }
 
     @GetMapping("/reset-redis")

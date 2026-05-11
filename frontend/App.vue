@@ -371,10 +371,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
 import { Reading, DataLine, User, Monitor, Setting, ArrowDown, Check, Bell, Timer, Refresh, Delete, VideoPlay, Calendar, Pointer, Lock, School, Camera, Location, Search, Basketball, Connection, ArrowLeft } from '@element-plus/icons-vue'
+import { bus } from './utils/eventBus.js'
+import {
+  COURSE_SELECTED, COURSE_DROPPED, COURSE_PROPOSED, COURSE_AUDITED,
+  COURSE_SCHEDULED, SYSTEM_RESET, AUTH_LOGIN, AUTH_LOGOUT,
+  DATA_REFRESH_ALL, DATA_REFRESH_COURSES
+} from './events/eventTypes.js'
 
 const API_BASE = 'http://localhost:8080'
 const defaultAvatar = "https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"
@@ -437,20 +443,22 @@ const handleLogin = async () => {
       activeMenu.value = 'dashboard'
       ElMessage.success(`登录成功：欢迎，${data.name}`)
       initData()
+      bus.emit(AUTH_LOGIN, { user: userInfoObj })
     } else { ElMessage.error(res.data.msg || '登录失败') }
   } catch (err) { ElMessage.error('无法连接服务器') } finally { loading.value = false }
 }
 
 const handleCommand = (cmd) => {
-  if (cmd === 'logout') { 
+  if (cmd === 'logout') {
     axios.post(`${API_BASE}/logout`).finally(() => {
-        isLoggedIn.value = false; 
-        localStorage.removeItem('satoken'); 
-        localStorage.removeItem('user_info'); // ✨ 退出时清除用户信息
-        myCourseList.value = []; 
-        ElMessage.success('已退出'); 
+        isLoggedIn.value = false;
+        localStorage.removeItem('satoken');
+        localStorage.removeItem('user_info');
+        myCourseList.value = [];
+        ElMessage.success('已退出');
+        bus.emit(AUTH_LOGOUT);
     });
-  } 
+  }
   else if (cmd === 'profile') { activeMenu.value = 'profile'; }
 }
 
@@ -584,10 +592,7 @@ const handleSelect = async (course) => {
     if(res.data.code === 200) {
       ElMessage.success('选课成功')
       const newCourse = { ...course }
-      myCourseList.value.push(newCourse) 
-      fetchMyCourses()
-      fetchAvailableCourses()
-      fetchCourses()
+      bus.emit(COURSE_SELECTED, { courseId: course.id, course })
     } else { ElMessage.error(res.data.msg) }
   } catch(e) { ElMessage.error(e.response?.data?.msg || '选课请求失败') }
   finally { btnLoading[course.id] = false } 
@@ -600,17 +605,29 @@ const handleDrop = (course) => {
       const res = await axios.post(`${API_BASE}/course/drop?courseId=${course.id}`)
       if(res.data.code === 200) {
         ElMessage.success('退课成功')
-        myCourseList.value = myCourseList.value.filter(c => c.id !== course.id)
-        fetchMyCourses()
-        fetchAvailableCourses()
-        fetchCourses()
+        bus.emit(COURSE_DROPPED, { courseId: course.id, course })
       } else { ElMessage.error(res.data.msg) }
     } catch(e) { ElMessage.error('网络请求失败') } finally { btnLoading[course.id] = false }
   })
 }
 
-const submitProposal = async () => { teacherForm.teacherName = currentUser.value.name; const payload = { ...teacherForm, timePreferences: teacherForm.preferences.join(',') }; await axios.post(`${API_BASE}/course/propose`, payload); ElNotification.success('已申报'); fetchCourses(); teacherForm.preferences = []; }
-const handleAudit = async (course, pass) => { await axios.post(`${API_BASE}/course/audit?courseId=${course.id}&pass=${pass}`); ElMessage.success('完成'); fetchCourses(); }
+const submitProposal = async () => {
+  teacherForm.teacherName = currentUser.value.name
+  const payload = { ...teacherForm, timePreferences: teacherForm.preferences.join(',') }
+  try {
+    await axios.post(`${API_BASE}/course/propose`, payload)
+    ElNotification.success('已申报')
+    bus.emit(COURSE_PROPOSED, { courseName: payload.name, teacherName: payload.teacherName })
+    teacherForm.preferences = []
+  } catch(e) { ElMessage.error('申报失败') }
+}
+const handleAudit = async (course, pass) => {
+  try {
+    await axios.post(`${API_BASE}/course/audit?courseId=${course.id}&pass=${pass}`)
+    ElMessage.success('完成')
+    bus.emit(COURSE_AUDITED, { courseId: course.id, course, passed: pass })
+  } catch(e) { ElMessage.error('操作失败') }
+}
 const handleReset = (course) => { ElMessageBox.confirm('重置库存？', '确认', {type:'warning'}).then(()=>handleAudit(course,true)) }
 
 // ✨✨✨ 优化后的重置逻辑：不使用 location.reload()，而是手动刷新数据 ✨✨✨
@@ -625,16 +642,7 @@ const handleResetSystem = () => {
       if(res.data.code === 200) {
         ElMessage.success(res.data.data || '重置成功')
         // 不刷新页面，手动清空本地数据
-        myCourseList.value = []
-        myScheduleCells.value = []
-        // 重新获取课程列表，状态应该已变更为"待排课"
-        await fetchCourses()
-        await fetchMyCourses()
-        // 如果在教室管理页面，也刷新
-        if (activeMenu.value === 'admin-classroom') {
-          fetchClassrooms()
-          currentClassroom.value = null
-        }
+        bus.emit(SYSTEM_RESET)
       } else {
         ElMessage.error(res.data.msg)
       }
@@ -644,7 +652,15 @@ const handleResetSystem = () => {
   })
 }
 
-const handleAutoSchedule = async () => { scheduing.value=true; try { await axios.post(`${API_BASE}/course/auto-schedule`); ElMessageBox.alert('排课完成'); fetchCourses(); } finally { scheduing.value=false } }
+const handleAutoSchedule = async () => {
+  scheduing.value = true
+  try {
+    await axios.post(`${API_BASE}/course/auto-schedule`)
+    ElMessageBox.alert('排课完成')
+    bus.emit(COURSE_SCHEDULED)
+  } catch(e) { ElMessage.error('排课失败') }
+  finally { scheduing.value = false }
+}
 
 const calcPercentage = (row) => Math.min(((row.selectedCount||0)/row.maxCount)*100, 100)
 const isFull = (row) => (row.selectedCount||0) >= row.maxCount
@@ -687,6 +703,27 @@ onMounted(() => {
       localStorage.removeItem('user_info');
     }
   }
+
+  // ========== 注册事件监听器（事件驱动架构） ==========
+  bus.on(COURSE_SELECTED, () => { fetchMyCourses(); fetchAvailableCourses(); fetchCourses() })
+  bus.on(COURSE_DROPPED,  () => { fetchMyCourses(); fetchAvailableCourses(); fetchCourses() })
+  bus.on(COURSE_PROPOSED,  () => fetchCourses())
+  bus.on(COURSE_AUDITED,   () => fetchCourses())
+  bus.on(COURSE_SCHEDULED, () => fetchCourses())
+  bus.on(SYSTEM_RESET,     () => { myCourseList.value = []; myScheduleCells.value = []; initData() })
+  bus.on(DATA_REFRESH_ALL,     () => initData())
+  bus.on(DATA_REFRESH_COURSES, () => fetchCourses())
+})
+
+onUnmounted(() => {
+  bus.off(COURSE_SELECTED)
+  bus.off(COURSE_DROPPED)
+  bus.off(COURSE_PROPOSED)
+  bus.off(COURSE_AUDITED)
+  bus.off(COURSE_SCHEDULED)
+  bus.off(SYSTEM_RESET)
+  bus.off(DATA_REFRESH_ALL)
+  bus.off(DATA_REFRESH_COURSES)
 })
 </script>
 

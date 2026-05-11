@@ -1,5 +1,6 @@
 package com.example.course.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -14,6 +15,7 @@ import com.example.course.mapper.StudentCourseMapper;
 import com.example.course.service.CourseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import com.example.course.event.CourseEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -30,6 +32,7 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
     @Autowired private CourseScheduleMapper scheduleMapper;
     @Autowired private ClassroomMapper classroomMapper;
     @Autowired private RedisTemplate<String, Object> redisTemplate;
+    @Autowired private CourseEventPublisher eventPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -97,6 +100,8 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
             update(new UpdateWrapper<Course>().setSql("selected_count = selected_count + 1").eq("id", courseId));
             redisTemplate.opsForSet().add(userKey, studentId);
 
+            eventPublisher.courseSelected(courseId, studentId, course.getName(), (int)(long)stock);
+
         } catch (Exception e) {
             redisTemplate.opsForValue().increment(stockKey);
             throw e; // 抛出异常供 Controller 捕获
@@ -108,11 +113,15 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
     public void dropCourse(Long studentId, Long courseId) {
         QueryWrapper<StudentCourse> query = new QueryWrapper<StudentCourse>().eq("student_id", studentId).eq("course_id", courseId);
         if (studentCourseMapper.delete(query) > 0) {
+            Course course = courseMapper.selectById(courseId);
+            int remaining = redisTemplate.opsForValue().increment("course:stock:" + courseId).intValue();
             courseMapper.update(null, new UpdateWrapper<Course>()
                     .setSql("selected_count = CASE WHEN selected_count > 0 THEN selected_count - 1 ELSE 0 END")
                     .eq("id", courseId));
-            redisTemplate.opsForValue().increment("course:stock:" + courseId);
             redisTemplate.opsForSet().remove("course:users:" + courseId, studentId);
+
+            eventPublisher.courseDropped(courseId, studentId,
+                    course != null ? course.getName() : "未知", remaining);
         } else {
             throw new RuntimeException("您未选修该课程");
         }
@@ -177,6 +186,10 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
         }
 
         // 注意：这里不再预热库存，因为课程变成了状态 1，不可选课。
+
+        String adminName = "";
+        try { adminName = StpUtil.getSession().getString("name"); } catch (Exception ignored) {}
+        eventPublisher.systemReset(adminName);
     }
 
     private void populateScheduleInfo(List<Course> courses) {
