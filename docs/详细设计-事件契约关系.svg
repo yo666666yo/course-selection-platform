@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: "Microsoft YaHei", Arial, sans-serif; fill: #111827; }
+      .title { font-size: 28px; font-weight: 700; }
+      .sub { font-size: 14px; fill: #475569; }
+      .col { fill: #ffffff; stroke: #475569; stroke-width: 1.2; rx: 10; }
+      .front { fill: #eff6ff; stroke: #2563eb; }
+      .back { fill: #f0fdf4; stroke: #16a34a; }
+      .event { fill: #faf5ff; stroke: #9333ea; }
+      .small { font-size: 13px; }
+      .label { font-size: 16px; font-weight: 700; }
+      .line { stroke: #334155; stroke-width: 1.3; marker-end: url(#arrow2); fill: none; }
+      .dash { stroke-dasharray: 6 5; }
+    </style>
+  </defs>
+  <rect width="1200" height="720" fill="#f8fafc"/>
+  <text x="600" y="42" text-anchor="middle" class="title">前后端事件契约关系图</text>
+  <text x="600" y="70" text-anchor="middle" class="sub">同一次业务动作会产生后端领域事件和前端刷新事件，二者通过 HTTP 成功响应衔接</text>
+
+  <rect x="45" y="115" width="245" height="535" class="col front"/>
+  <rect x="340" y="115" width="245" height="535" class="col back"/>
+  <rect x="635" y="115" width="245" height="535" class="col event"/>
+  <rect x="930" y="115" width="225" height="535" class="col"/>
+
+  <text x="168" y="145" text-anchor="middle" class="label">前端事件</text>
+  <text x="462" y="145" text-anchor="middle" class="label">HTTP 写接口</text>
+  <text x="758" y="145" text-anchor="middle" class="label">后端领域事件</text>
+  <text x="1042" y="145" text-anchor="middle" class="label">消费者动作</text>
+
+  <g>
+    <text x="75" y="195" class="label">COURSE_SELECTED</text>
+    <text x="75" y="216" class="small">payload: courseId, course</text>
+    <text x="370" y="205" class="label">POST /course/select</text>
+    <text x="665" y="195" class="label">CourseSelectedEvent</text>
+    <text x="665" y="216" class="small">courseId, studentId, name, stock</text>
+    <text x="960" y="195" class="label">刷新 + 审计</text>
+    <text x="960" y="216" class="small">前端刷新三类课程数据</text>
+    <path d="M290 205 L340 205" class="line"/>
+    <path d="M585 205 L635 205" class="line"/>
+    <path d="M880 205 L930 205" class="line"/>
+  </g>
+  <g>
+    <text x="75" y="280" class="label">COURSE_DROPPED</text>
+    <text x="75" y="301" class="small">payload: courseId, course</text>
+    <text x="370" y="290" class="label">POST /course/drop</text>
+    <text x="665" y="280" class="label">CourseDroppedEvent</text>
+    <text x="665" y="301" class="small">courseId, studentId, name, stock</text>
+    <text x="960" y="280" class="label">刷新 + 审计</text>
+    <text x="960" y="301" class="small">恢复库存后刷新课表</text>
+    <path d="M290 290 L340 290" class="line"/>
+    <path d="M585 290 L635 290" class="line"/>
+    <path d="M880 290 L930 290" class="line"/>
+  </g>
+  <g>
+    <text x="75" y="365" class="label">COURSE_PROPOSED</text>
+    <text x="75" y="386" class="small">payload: courseName, teacherName</text>
+    <text x="370" y="375" class="label">POST /course/propose</text>
+    <text x="665" y="365" class="label">CourseProposedEvent</text>
+    <text x="665" y="386" class="small">courseId, name, teacher</text>
+    <text x="960" y="365" class="label">刷新课程列表</text>
+    <text x="960" y="386" class="small">待审核数量变化</text>
+    <path d="M290 375 L340 375" class="line"/>
+    <path d="M585 375 L635 375" class="line"/>
+    <path d="M880 375 L930 375" class="line"/>
+  </g>
+  <g>
+    <text x="75" y="450" class="label">COURSE_AUDITED</text>
+    <text x="75" y="471" class="small">payload: courseId, passed</text>
+    <text x="370" y="460" class="label">POST /course/audit</text>
+    <text x="665" y="450" class="label">CourseAuditedEvent</text>
+    <text x="665" y="471" class="small">courseId, name, passed</text>
+    <text x="960" y="450" class="label">刷新状态</text>
+    <text x="960" y="471" class="small">待排课/驳回状态变化</text>
+    <path d="M290 460 L340 460" class="line"/>
+    <path d="M585 460 L635 460" class="line"/>
+    <path d="M880 460 L930 460" class="line"/>
+  </g>
+  <g>
+    <text x="75" y="535" class="label">COURSE_SCHEDULED</text>
+    <text x="75" y="556" class="small">payload: none</text>
+    <text x="370" y="545" class="label">POST /course/auto-schedule</text>
+    <text x="665" y="535" class="label">ScheduleGeneratedEvent</text>
+    <text x="665" y="556" class="small">scheduledCount</text>
+    <text x="960" y="535" class="label">刷新排课字段</text>
+    <text x="960" y="556" class="small">time/location/status</text>
+    <path d="M290 545 L340 545" class="line"/>
+    <path d="M585 545 L635 545" class="line"/>
+    <path d="M880 545 L930 545" class="line"/>
+  </g>
+  <g>
+    <text x="75" y="620" class="label">SYSTEM_RESET</text>
+    <text x="75" y="641" class="small">payload: none</text>
+    <text x="370" y="630" class="label">GET /course/reset-redis</text>
+    <text x="665" y="620" class="label">SystemResetEvent</text>
+    <text x="665" y="641" class="small">adminName</text>
+    <text x="960" y="620" class="label">清空并重载</text>
+    <text x="960" y="641" class="small">myCourseList / schedule</text>
+    <path d="M290 630 L340 630" class="line"/>
+    <path d="M585 630 L635 630" class="line"/>
+    <path d="M880 630 L930 630" class="line"/>
+  </g>
+</svg>
