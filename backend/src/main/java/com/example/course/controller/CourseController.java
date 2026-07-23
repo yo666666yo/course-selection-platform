@@ -100,10 +100,10 @@ public class CourseController {
     @RequestMapping("/auto-schedule")
     public Result<String> autoSchedule() {
         if (!"admin".equals(StpUtil.getSession().getString("role"))) return Result.error("无权操作");
-        int pendingCount = courseMapper.selectCount(
+        Long pendingCount = courseMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Course>().eq("status", 1));
         String result = autoScheduleService.autoSchedule();
-        eventPublisher.scheduleGenerated(pendingCount > 0 ? pendingCount : 0);
+        eventPublisher.scheduleGenerated(pendingCount > 0 ? pendingCount.intValue() : 0);
         return Result.success(result);
     }
 

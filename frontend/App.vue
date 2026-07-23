@@ -375,12 +375,12 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
 import { Reading, DataLine, User, Monitor, Setting, ArrowDown, Check, Bell, Timer, Refresh, Delete, VideoPlay, Calendar, Pointer, Lock, School, Camera, Location, Search, Basketball, Connection, ArrowLeft } from '@element-plus/icons-vue'
-import { bus } from './utils/eventBus.js'
+import { bus } from './src/utils/eventBus.js'
 import {
   COURSE_SELECTED, COURSE_DROPPED, COURSE_PROPOSED, COURSE_AUDITED,
   COURSE_SCHEDULED, SYSTEM_RESET, AUTH_LOGIN, AUTH_LOGOUT,
   DATA_REFRESH_ALL, DATA_REFRESH_COURSES
-} from './events/eventTypes.js'
+} from './src/events/eventTypes.js'
 
 const API_BASE = 'http://localhost:8080'
 const defaultAvatar = "https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"
